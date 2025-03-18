@@ -2,6 +2,12 @@ from fastapi import FastAPI, HTTPException
 import requests
 import spacy
 import httpx
+from motor.motor_asyncio import AsyncIOMotorClient
+
+MONGO_URI = "mongodb+srv://kazundachawana:<db_password>@weebraphael.9vgko.mongodb.net/?retryWrites=true&w=majority&appName=WeebRaphael"
+client = AsyncIOMotorClient(MONGO_URI)
+db = client["WeebRaphael"]  
+users_collection = db["users"]  
 
 app = FastAPI()
 
@@ -76,7 +82,7 @@ async def fetch_anime_recommendations(genre: list):
 
     variables = {
         "genres": genre, 
-        "perPage": 5
+        "perPage": 10
     }
 
     async with httpx.AsyncClient() as client:
