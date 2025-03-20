@@ -1,10 +1,14 @@
 from fastapi import FastAPI, HTTPException
+from dotenv import load_dotenv
+from motor.motor_asyncio import AsyncIOMotorClient
+import os
 import requests
 import spacy
 import httpx
-from motor.motor_asyncio import AsyncIOMotorClient
 
-MONGO_URI = "mongodb+srv://kazundachawana:<db_password>@weebraphael.9vgko.mongodb.net/?retryWrites=true&w=majority&appName=WeebRaphael"
+load_dotenv()
+
+MONGO_URI = os.getenv("MONGO_URI")
 client = AsyncIOMotorClient(MONGO_URI)
 db = client["WeebRaphael"]  
 users_collection = db["users"]  
@@ -13,7 +17,7 @@ app = FastAPI()
 
 nlp = spacy.load("en_core_web_sm")
 
-ANILIST_API_URL = "https://graphql.anilist.co"
+ANILIST_API_URL = os.getenv("ANILIST_API_URL")
 
 GENRE_MAPPING = {
     "action": "Action",
