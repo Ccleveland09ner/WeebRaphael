@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from dotenv import load_dotenv
+from pydantic import BaseModel
+from datetime import datetime
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import requests
@@ -14,6 +16,14 @@ db = client["WeebRaphael"]
 users_collection = db["users"]  
 
 app = FastAPI()
+
+@app.get("/test-db")
+async def test_db_connection():
+    try:
+        await db.command("ping")  
+        return {"message": "✅ MongoDB is connected successfully!"}
+    except Exception as e:
+        return {"error": str(e)}
 
 nlp = spacy.load("en_core_web_sm")
 
@@ -171,3 +181,61 @@ async def search_anime(query: str):
             for anime in anime_list
         ]
     raise HTTPException(status_code=404, detail="No anime found matching that query")
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    preferences: list[str] = []
+
+class FavoriteAnime(BaseModel):
+    anime_id: str
+    title: str
+
+class WatchHistory(BaseModel):
+    anime_id: str
+    title: str
+
+async def create_user(user: UserCreate):
+    existing_user = await users_collection.find_one({"username": user.username})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already exists")
+
+    user_data = {
+        "username": user.username,
+        "email": user.email,
+        "preferences": user.preferences,
+        "watch_history": [],
+        "favorites": []
+    }
+    await users_collection.insert_one(user_data)
+    return {"message": "User created successfully"}
+
+@app.get("/users/{username}")
+async def get_user(username: str):
+    user = await users_collection.find_one({"username": username}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@app.post("/users/{username}/favorites")
+async def add_favorite(username: str, anime: FavoriteAnime):
+    user = await users_collection.find_one({"username": username})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    anime_entry = {"anime_id": anime.anime_id, "title": anime.title, "added_at": datetime.utcnow().isoformat()}
+    await users_collection.update_one(
+        {"username": username}, {"$push": {"favorites": anime_entry}}
+    )
+    return {"message": "Anime added to favorites"}
+
+async def add_watch_history(username: str, anime: WatchHistory):
+    user = await users_collection.find_one({"username": username})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    history_entry = {"anime_id": anime.anime_id, "title": anime.title, "watched_at": datetime.utcnow().isoformat()}
+    await users_collection.update_one(
+        {"username": username}, {"$push": {"watch_history": history_entry}}
+    )
+    return {"message": "Anime added to watch history"}
